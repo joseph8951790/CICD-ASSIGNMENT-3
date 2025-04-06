@@ -10,8 +10,7 @@ pipeline {
         AZURE_TENANT_ID = 'dbb8b5e0-a43b-4759-a6eb-83192df9efef'
         AZURE_CLIENT_ID = '56f01f9c-e1e2-4afc-bd47-73e4f70399d9'
         AZURE_CLIENT_SECRET = '18ee4601-9ec3-4144-8ce0-5ba03038e2e2'
-        AZURE_FUNCTIONAPP_PUBLISH_PROFILE = 'cicd-assignment3-func'
-        AZURE_FUNCTIONAPP_PUBLISH_PROFILE_WITH_SECRETS = credentials('AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
+        AZURE_FUNCTIONAPP_PUBLISH_PROFILE = credentials('AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
     }
 
     stages {
@@ -38,11 +37,40 @@ pipeline {
                 bat 'npm run build --if-present'
                 bat 'echo D | xcopy /s /y . %TEMP%\\azure-function-deploy\\'
                 powershell '''
-                    Compress-Archive -Path "$env:TEMP\\azure-function-deploy\\*" -DestinationPath "$env:TEMP\\azure-function-deploy.zip" -Force
-                    $apiUrl = "https://func-cicd-joseph.scm.azurewebsites.net/api/zipdeploy"
-                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:AZURE_FUNCTIONAPP_PUBLISH_PROFILE_WITH_SECRETS"))
-                    $userAgent = "powershell/1.0"
-                    Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -UserAgent $userAgent -Method POST -InFile "$env:TEMP\\azure-function-deploy.zip" -ContentType "application/zip"
+                    try {
+                        # Get the publish profile XML
+                        $publishProfile = $env:AZURE_FUNCTIONAPP_PUBLISH_PROFILE
+                        
+                        # Parse the XML to get the credentials for ZIP deploy
+                        $xmlProfile = [xml]$publishProfile
+                        $zipDeployProfile = $xmlProfile.publishData.publishProfile | Where-Object {$_.publishMethod -eq 'ZipDeploy'}
+                        
+                        $username = $zipDeployProfile.userName
+                        $password = $zipDeployProfile.userPWD
+                        
+                        # Create auth header
+                        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
+                        
+                        # Build the API URL
+                        $apiUrl = "https://$($env:AZURE_FUNCTIONAPP_NAME).scm.azurewebsites.net/api/zipdeploy"
+                        
+                        # Create and upload the zip file
+                        Compress-Archive -Path "$env:TEMP\\azure-function-deploy\\*" -DestinationPath "$env:TEMP\\azure-function-deploy.zip" -Force
+                        
+                        # Deploy using REST API
+                        $response = Invoke-RestMethod -Uri $apiUrl `
+                            -Headers @{Authorization=("Basic $base64AuthInfo")} `
+                            -UserAgent "powershell/1.0" `
+                            -Method POST `
+                            -InFile "$env:TEMP\\azure-function-deploy.zip" `
+                            -ContentType "application/zip"
+                            
+                        Write-Host "Deployment successful!"
+                    } catch {
+                        Write-Error "Deployment failed: $_"
+                        Write-Error $_.Exception.Message
+                        throw
+                    }
                 '''
             }
         }
