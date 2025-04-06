@@ -11,6 +11,7 @@ pipeline {
         AZURE_CLIENT_ID = '56f01f9c-e1e2-4afc-bd47-73e4f70399d9'
         AZURE_CLIENT_SECRET = '18ee4601-9ec3-4144-8ce0-5ba03038e2e2'
         AZURE_FUNCTIONAPP_PUBLISH_PROFILE = 'cicd-assignment3-func'
+        AZURE_FUNCTIONAPP_PUBLISH_PROFILE_WITH_SECRETS = credentials('AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
     }
 
     stages {
@@ -34,19 +35,15 @@ pipeline {
         
         stage('Deploy to Azure') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'AZURE_SUBSCRIPTION_ID'),
-                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'AZURE_TENANT_ID'),
-                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'AZURE_CLIENT_ID'),
-                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZURE_CLIENT_SECRET'),
-                    string(credentialsId: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE', variable: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
-                ]) {
-                    bat '''
-                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
-                        az account set --subscription %AZURE_SUBSCRIPTION_ID%
-                        az functionapp deployment source config-zip -g %AZURE_RESOURCE_GROUP% -n %AZURE_FUNCTIONAPP_NAME% --src .
-                    '''
-                }
+                bat 'npm run build --if-present'
+                bat 'echo D | xcopy /s /y . %TEMP%\\azure-function-deploy\\'
+                powershell '''
+                    Compress-Archive -Path "$env:TEMP\\azure-function-deploy\\*" -DestinationPath "$env:TEMP\\azure-function-deploy.zip" -Force
+                    $apiUrl = "https://func-cicd-joseph.scm.azurewebsites.net/api/zipdeploy"
+                    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$env:AZURE_FUNCTIONAPP_PUBLISH_PROFILE_WITH_SECRETS"))
+                    $userAgent = "powershell/1.0"
+                    Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization=("Basic {0}" -f $base64AuthInfo)} -UserAgent $userAgent -Method POST -InFile "$env:TEMP\\azure-function-deploy.zip" -ContentType "application/zip"
+                '''
             }
         }
     }
