@@ -2,43 +2,51 @@ pipeline {
     agent any
     
     environment {
-        AZURE_FUNCTIONAPP_NAME = 'your-function-app-name'
-        AZURE_FUNCTIONAPP_PUBLISH_PROFILE = credentials('AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
-        AZURE_SUBSCRIPTION_ID = credentials('AZURE_SUBSCRIPTION_ID')
-        AZURE_TENANT_ID = credentials('AZURE_TENANT_ID')
-        AZURE_CLIENT_ID = credentials('AZURE_CLIENT_ID')
-        AZURE_CLIENT_SECRET = credentials('AZURE_CLIENT_SECRET')
-        RESOURCE_GROUP = 'your-resource-group'
+        // These values will be provided by your instructor
+        AZURE_FUNCTIONAPP_NAME = 'func-cicd-joseph'
+        AZURE_RESOURCE_GROUP = 'rg-cicd-func'
+        NODE_VERSION = '22'
+        AZURE_SUBSCRIPTION_ID = '2f19abaa-73c4-4c22-9841-9588ffe6b5f2'
+        AZURE_TENANT_ID = 'dbb8b5e0-a43b-4759-a6eb-83192df9efef'
+        AZURE_CLIENT_ID = '56f01f9c-e1e2-4afc-bd47-73e4f70399d9'
+        AZURE_CLIENT_SECRET = '18ee4601-9ec3-4144-8ce0-5ba03038e2e2'
+        AZURE_FUNCTIONAPP_PUBLISH_PROFILE = 'cicd-assignment3-func'
     }
 
     stages {
-        stage('Build') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Install Dependencies') {
             steps {
                 sh 'npm install'
             }
         }
         
-        stage('Test') {
+        stage('Run Tests') {
             steps {
                 sh 'npm test'
             }
         }
         
-        stage('Deploy') {
+        stage('Deploy to Azure') {
             steps {
-                sh '''
-                    # Login to Azure
-                    az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                    
-                    # Set subscription
-                    az account set --subscription $AZURE_SUBSCRIPTION_ID
-                    
-                    # Create deployment package
-                    zip -r function.zip . -x "*.git*" "tests/*" "node_modules/*"
-                    
-                    # Deploy to Azure Function
-                    az functionapp deployment source config-zip -g $RESOURCE_GROUP -n $AZURE_FUNCTIONAPP_NAME --src function.zip
-                '''
+                withCredentials([
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'AZURE_SUBSCRIPTION_ID'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'AZURE_TENANT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'AZURE_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZURE_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE', variable: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
+                ]) {
+                    sh '''
+                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                        az account set --subscription $AZURE_SUBSCRIPTION_ID
+                        az functionapp deployment source config-zip -g $AZURE_RESOURCE_GROUP -n $AZURE_FUNCTIONAPP_NAME --src ./
+                    '''
+                }
             }
         }
     }

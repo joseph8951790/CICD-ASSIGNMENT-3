@@ -1,38 +1,38 @@
-const { default: functionHandler } = require('../src/index');
+const httpFunction = require('../src/index');
+const context = require('./testContext');
 
-describe('Azure Function Tests', () => {
-    let context;
-    let req;
-    let res;
+test('HTTP trigger should return "Hello, World!" when no name is provided', async () => {
+    const request = {
+        query: {},
+        body: {}
+    };
 
-    beforeEach(() => {
-        context = {
-            log: jest.fn(),
-            res: {}
-        };
-        req = {
-            query: {},
-            body: {}
-        };
-    });
+    await httpFunction(context, request);
 
-    test('should return Hello World when no name is provided', async () => {
-        await functionHandler(context, req);
-        expect(context.res.status).toBe(200);
-        expect(context.res.body).toBe('Hello, World!');
-    });
+    expect(context.res.status).toBe(200);
+    expect(context.res.body).toBe('Hello, World!');
+});
 
-    test('should return personalized greeting when name is provided in query', async () => {
-        req.query.name = 'John';
-        await functionHandler(context, req);
-        expect(context.res.status).toBe(200);
-        expect(context.res.body).toBe('Hello, John!');
-    });
+test('HTTP trigger should return "Hello, Name!" when name is provided in query', async () => {
+    const request = {
+        query: { name: 'John' },
+        body: {}
+    };
 
-    test('should return personalized greeting when name is provided in body', async () => {
-        req.body.name = 'Jane';
-        await functionHandler(context, req);
-        expect(context.res.status).toBe(200);
-        expect(context.res.body).toBe('Hello, Jane!');
-    });
+    await httpFunction(context, request);
+
+    expect(context.res.status).toBe(200);
+    expect(context.res.body).toBe('Hello, John!');
+});
+
+test('HTTP trigger should return "Hello, Name!" when name is provided in body', async () => {
+    const request = {
+        query: {},
+        body: { name: 'Jane' }
+    };
+
+    await httpFunction(context, request);
+
+    expect(context.res.status).toBe(200);
+    expect(context.res.body).toBe('Hello, Jane!');
 }); 

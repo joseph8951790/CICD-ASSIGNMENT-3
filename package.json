@@ -1,17 +1,16 @@
 {
-  "name": "azure-function-hello-world",
+  "name": "azure-function-cicd",
   "version": "1.0.0",
-  "description": "A simple Hello World Azure Function",
-  "main": "index.js",
+  "description": "Azure Function with Jenkins CI/CD",
+  "main": "src/index.js",
   "scripts": {
     "test": "jest",
     "start": "func start"
   },
   "dependencies": {
-    "@azure/functions": "^3.5.1"
+    "@azure/functions": "^4.0.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3"
+    "jest": "^29.7.0"
   }
 } 
