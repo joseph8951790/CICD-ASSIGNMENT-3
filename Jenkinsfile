@@ -45,19 +45,18 @@ pipeline {
                         $xmlProfile = [xml]$publishProfile
                         $zipDeployProfile = $xmlProfile.publishData.publishProfile | Where-Object {$_.publishMethod -eq 'ZipDeploy'}
                         
-                        $username = $zipDeployProfile.userName
-                        $password = $zipDeployProfile.userPWD
+                        $creds = $zipDeployProfile.userName + ":" + $zipDeployProfile.userPWD
                         
                         # Create auth header
-                        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$username:$password"))
+                        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($creds))
                         
                         # Build the API URL
-                        $apiUrl = "https://$($env:AZURE_FUNCTIONAPP_NAME).scm.azurewebsites.net/api/zipdeploy"
+                        $apiUrl = "https://" + $env:AZURE_FUNCTIONAPP_NAME + ".scm.azurewebsites.net/api/zipdeploy"
                         
-                        # Create and upload the zip file
+                        Write-Host "Creating deployment package..."
                         Compress-Archive -Path "$env:TEMP\\azure-function-deploy\\*" -DestinationPath "$env:TEMP\\azure-function-deploy.zip" -Force
                         
-                        # Deploy using REST API
+                        Write-Host "Deploying to Azure Function App..."
                         $response = Invoke-RestMethod -Uri $apiUrl `
                             -Headers @{Authorization=("Basic $base64AuthInfo")} `
                             -UserAgent "powershell/1.0" `
@@ -70,6 +69,10 @@ pipeline {
                         Write-Error "Deployment failed: $_"
                         Write-Error $_.Exception.Message
                         throw
+                    } finally {
+                        if (Test-Path "$env:TEMP\\azure-function-deploy.zip") {
+                            Remove-Item "$env:TEMP\\azure-function-deploy.zip" -Force
+                        }
                     }
                 '''
             }
