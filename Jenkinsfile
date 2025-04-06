@@ -22,13 +22,13 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                bat 'npm install'
             }
         }
         
         stage('Run Tests') {
             steps {
-                sh 'npm test'
+                bat 'npm test'
             }
         }
         
@@ -41,10 +41,10 @@ pipeline {
                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZURE_CLIENT_SECRET'),
                     string(credentialsId: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE', variable: 'AZURE_FUNCTIONAPP_PUBLISH_PROFILE')
                 ]) {
-                    sh '''
-                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                        az account set --subscription $AZURE_SUBSCRIPTION_ID
-                        az functionapp deployment source config-zip -g $AZURE_RESOURCE_GROUP -n $AZURE_FUNCTIONAPP_NAME --src ./
+                    bat '''
+                        az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
+                        az account set --subscription %AZURE_SUBSCRIPTION_ID%
+                        az functionapp deployment source config-zip -g %AZURE_RESOURCE_GROUP% -n %AZURE_FUNCTIONAPP_NAME% --src .
                     '''
                 }
             }
